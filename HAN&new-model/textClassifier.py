@@ -17,16 +17,19 @@ from keras.utils.np_utils import to_categorical
 
 from keras.layers import Embedding
 from keras.layers import Dense, Input, Flatten
-from keras.layers import Conv1D, MaxPooling1D, Embedding, Merge, Dropout, LSTM, GRU, Bidirectional, TimeDistributed
+from keras.layers import Conv1D, MaxPooling1D, Embedding, Merge, Dropout, LSTM, GRU, Bidirectional, TimeDistributed, Concatenate
 from keras.models import Model
 
 from keras import backend as K
 from keras.engine.topology import Layer, InputSpec
 from keras import initializers
 
+import keras.optimizers
+
 from nltk import tokenize
 
 MAX_SENT_LENGTH = 100
+MAX_SENTS = 10
 MAX_WORD_LENGTH = 15
 MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 100
@@ -46,69 +49,101 @@ test_path = "./trainingandtestdata/testdata.manual.2009.06.14.csv"
 
 data_train = pd.read_csv(test_path, delimiter=',', encoding='latin-1', header=None,
                          names=['category', 'id', 'time', 'query', 'user', 'text'])
+data_test = pd.read_csv(test_path, delimiter=',', encoding='latin-1', header=None,
+                         names=['category', 'id', 'time', 'query', 'user', 'text'])
 
-print("data read")
+texts_train = []
+tweets_train = []
+labels_train = []
 
-texts = []
-tweets = []
-labels = []
+texts_test = []
+tweets_test = []
+labels_test = []
 
 for idx in range(data_train.text.shape[0]):
-	text = data_train.text[idx]
-	text = clean_str(text)
-	texts.append(text)
+	text_train = data_train.text[idx]
+	text_train = clean_str(text_train)
+	texts_train.append(text_train)
 	
-	labels.append(data_train.category[idx])
+	labels_train.append(data_train.category[idx])
 	
-	tweet = tokenize.word_tokenize(text)
-	MAX_SENT_LENGTH = max(MAX_SENT_LENGTH, len(tweet))
-	tweets.append(tweet)
+	sentences_train_tmp = tokenize.sent_tokenize(text_train)
+	sentences_train = []
+	for sentence in sentences_train_tmp:
+		sentence = tokenize.word_tokenize(sentence)
+		sentences_train.append(sentence)
+	MAX_SENTS = max(MAX_SENTS, len(sentences_train))
+	tweets_train.append(sentences_train)
+	
+
+for idx in range(data_test.text.shape[0]):
+	text_test = data_test.text[idx]
+	text_test = clean_str(text_test)
+	texts_test.append(text_test)
+	
+	labels_test.append(data_test.category[idx])
+
+	sentences_test_tmp = tokenize.sent_tokenize(text_test)
+	sentences_test = []
+	for sentence in sentences_test_tmp:
+		sentence = tokenize.word_tokenize(sentence)
+		sentences_test.append(sentence)
+	MAX_SENTS = max(MAX_SENTS, len(sentences_test))
+	tweets_test.append(sentences_test)
+
 
 tokenizer = Tokenizer(nb_words=MAX_NB_WORDS)
-tokenizer.fit_on_texts(texts)
+tokenizer.fit_on_texts(texts_train)
 
-data = np.zeros((len(texts), MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
+x_train = np.zeros((len(texts_train), MAX_SENTS, MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
+x_test = np.zeros((len(texts_test), MAX_SENTS, MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
 
-for i, tweet in enumerate(tweets):
-	for j, word in enumerate(tweet):
-		if j < MAX_SENT_LENGTH:
-			charTokens = list(word)
-			k = 0
-			for _, char in enumerate(charTokens):
-				if k < MAX_WORD_LENGTH:
-					data[i, j, k] = alphabet.index(char)
-					k += 1
+for i, tweet in enumerate(tweets_train):
+	for j, sentence in enumerate(tweet):
+		for l, word in enumerate(sentence):
+			if l < MAX_SENT_LENGTH:
+				charTokens = list(word)
+				k = 0
+				for _, char in enumerate(charTokens):
+					if k < MAX_WORD_LENGTH:
+						x_train[i, j, l, k] = alphabet.index(char)
+						k += 1
+						
+for i, tweet in enumerate(tweets_test):
+	for j, sentence in enumerate(tweet):
+		for l, word in enumerate(sentence):
+			if l < MAX_SENT_LENGTH:
+				charTokens = list(word)
+				k = 0
+				for _, char in enumerate(charTokens):
+					if k < MAX_WORD_LENGTH:
+						x_test[i, j, l, k] = alphabet.index(char)
+						k += 1
 
 word_index = tokenizer.word_index
 print('Total %s unique tokens.' % len(word_index))
 
-labels = to_categorical(np.asarray(labels))
-print('Shape of data tensor:', data.shape)
-print('Shape of label tensor:', labels.shape)
+y_train = to_categorical(np.asarray(labels_train))
+y_test = to_categorical(np.asarray(labels_test))
+# print('Shape of data tensor:', data.shape)
+# print('Shape of label tensor:', labels.shape)
 
-print(data_train.shape)
+train_indices = np.arange(x_train.shape[0])
+np.random.shuffle(train_indices)
+x_train = x_train[train_indices]
+y_train = y_train[train_indices]
 
-indices = np.arange(data.shape[0])
-np.random.shuffle(indices)
-data = data[indices]
-labels = labels[indices]
-nb_validation_samples = int(VALIDATION_SPLIT * data.shape[0])
-
-x_train = data[:-nb_validation_samples]
-y_train = labels[:-nb_validation_samples]
-x_val = data[-nb_validation_samples:]
-y_val = labels[-nb_validation_samples:]
+test_indices = np.arange(x_train.shape[0])
+np.random.shuffle(test_indices)
+x_test = x_test[test_indices]
+y_test = y_test[test_indices]
 
 print('Number of positive and negative tweets in traing and validation set')
 print y_train.sum(axis=0)
-print y_val.sum(axis=0)
+print y_test.sum(axis=0)
 
-# temporarily there are no fittable pre-trained model for character embedding
-embedding_layer = Embedding(len(alphabet) - 1,
-                            EMBEDDING_DIM,
-                            input_length=MAX_WORD_LENGTH,
-                            trainable=True,
-                            mask_zero=True)
+print(x_train.shape)
+print(y_train.shape)
 
 class AttLayer(Layer):
 	def __init__(self, attention_dim):
@@ -151,24 +186,41 @@ class AttLayer(Layer):
 	def compute_output_shape(self, input_shape):
 		return (input_shape[0], input_shape[-1])
 
+embedding_char_layer = Embedding(len(alphabet),
+                            EMBEDDING_DIM,
+                            input_length=MAX_WORD_LENGTH,
+                            trainable=True,
+                            mask_zero=True)
 
+# char level embedding with attention
 word_input = Input(shape=(MAX_WORD_LENGTH,), dtype='int32')
-embedded_sequences = embedding_layer(word_input)
+embedded_sequences = embedding_char_layer(word_input)
+print(embedded_sequences.shape)
 l_lstm = Bidirectional(GRU(100, return_sequences=True))(embedded_sequences)
 l_att = AttLayer(100)(l_lstm)
-sentEncoder = Model(word_input, l_att)
+wordEncoder = Model(word_input, l_att)
 
-tweet_input = Input(shape=(MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
+sent_input = Input(shape=(MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
+sent_encoder = TimeDistributed(wordEncoder)(sent_input)
+l_lstm_sent = Bidirectional(GRU(100, return_sequences=True))(sent_encoder)
+l_att_sent = AttLayer(100)(l_lstm_sent)
+sentEncoder = Model(sent_input, l_att_sent)
+# to be revised
+# embed_word = embedding_word_layer(sent_input)
+# sentEncoder = Concatenate(axis=-1)([sent_encoder, embed_word])
+
+tweet_input = Input(shape=(MAX_SENTS, MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
 tweet_encoder = TimeDistributed(sentEncoder)(tweet_input)
 l_lstm_tweet = Bidirectional(GRU(100, return_sequences=True))(tweet_encoder)
 l_att_tweet = AttLayer(100)(l_lstm_tweet)
-preds = Dense(5, activation='softmax')(l_att_tweet)
+preds = Dense(5, activation='softmax')(l_att_tweet)  # modified: 2->5
 model = Model(tweet_input, preds)
 
+rmsprop = keras.optimizers.RMSprop(lr=0.005, rho=0.9, epsilon=K.epsilon(), clipvalue=1., decay=0.0)
 model.compile(loss='categorical_crossentropy',
-              optimizer='rmsprop',
+              optimizer=rmsprop,
               metrics=['acc'])
 
 print("model fitting - Hierachical attention network")
-model.fit(x_train, y_train, validation_data=(x_val, y_val),
+model.fit(x_train, y_train, validation_data=(x_test, y_test),
           nb_epoch=10, batch_size=50)
