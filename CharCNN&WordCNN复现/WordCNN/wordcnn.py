@@ -9,6 +9,11 @@ from keras.datasets import imdb
 from keras.preprocessing import sequence
 np.random.seed(0)
 
+
+'''复现了https://github.com/alexander-rakhlin/CNN-for-Sentence-Classification-in-Keras中的wordcnn
+'''
+
+
 # ---------------------- Parameters section -------------------
 #
 # Model type. See Kim Yoon's Convolutional Neural Networks for Sentence Classification, Section 3
