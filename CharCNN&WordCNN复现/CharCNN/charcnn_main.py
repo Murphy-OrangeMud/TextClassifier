@@ -20,6 +20,9 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 session = tf.Session(config=config)'''
 
+'''复现了https://github.com/mhjabreel/CharCnn_Keras中的charcnn
+'''
+
 if __name__ == "__main__":
     # Load configurations
     config = json.load(open("config.json"))
