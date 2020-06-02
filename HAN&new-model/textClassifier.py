@@ -200,15 +200,6 @@ l_lstm = Bidirectional(GRU(100, return_sequences=True))(embedded_sequences)
 l_att = AttLayer(100)(l_lstm)
 wordEncoder = Model(word_input, l_att)
 
-sent_input = Input(shape=(MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
-sent_encoder = TimeDistributed(wordEncoder)(sent_input)
-l_lstm_sent = Bidirectional(GRU(100, return_sequences=True))(sent_encoder)
-l_att_sent = AttLayer(100)(l_lstm_sent)
-sentEncoder = Model(sent_input, l_att_sent)
-# to be revised
-# embed_word = embedding_word_layer(sent_input)
-# sentEncoder = Concatenate(axis=-1)([sent_encoder, embed_word])
-
 tweet_input = Input(shape=(MAX_SENTS, MAX_SENT_LENGTH, MAX_WORD_LENGTH), dtype='int32')
 tweet_encoder = TimeDistributed(sentEncoder)(tweet_input)
 l_lstm_tweet = Bidirectional(GRU(100, return_sequences=True))(tweet_encoder)
