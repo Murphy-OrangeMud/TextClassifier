@@ -1,9 +1,11 @@
 # TextClassifier
 算法设计与分析 Project
-# 摘要: 文本分类一直是自然语言处理研究的重要领域。在调研时我们发现，著名的论文 Hierarchical Attention Networks for Document Classifcation 所描述的结构只适用于有很强结
+# 摘要: 
+文本分类一直是自然语言处理研究的重要领域。在调研时我们发现，著名的论文 Hierarchical Attention Networks for Document Classifcation 所描述的结构只适用于有很强结
 构性的长文本，而对短文本效果不太好。于是我们借鉴了论文中的结构，将其进行迁移，在
 推特的数据集上进行了测试。  
-# 关键词: 自然语言处理 文本分类 层级结构 attention 机制  
+# 关键词: 
+自然语言处理 文本分类 层级结构 attention 机制  
 # 目录
 1 问题描述 2  
 2 相关工作 2  
@@ -127,7 +129,7 @@ epoch batch_size embedding_size optimizer dropout loss
 HAN 0.1997 0.9253 4.7457 0.5120
 wordcnn 0.7058 0.4978 0.6956 0.4960
 charcnn 0.0253 / 4.4988 /
-5.6 结果分析和 Future work  
+# 5.6 结果分析和 Future work  
 经过对实验数据进行分析，我们发现虽然测试集上的效果提升不太明显。但是比起 HAN
 模型，初值和峰值的提升已经达到了百分之七。但是遗憾的是，实验数据在 loss、准确率和
 收敛速度上都不如 HAN 模型。对于另外两个模型，我们惊喜地发现，在训练集的准确率上
